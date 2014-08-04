@@ -901,6 +901,7 @@ struct usb_gadget_driver {
  * be in init sections.
  */
 int usb_gadget_probe_driver(struct usb_gadget_driver *driver);
+int udc_usb_gadget_probe_driver(struct usb_gadget_driver *driver);
 
 /**
  * usb_gadget_unregister_driver - unregister a gadget driver
@@ -916,6 +917,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver);
  * will in in exit sections, so may not be linked in some kernels.
  */
 int usb_gadget_unregister_driver(struct usb_gadget_driver *driver);
+int udc_usb_gadget_unregister_driver(struct usb_gadget_driver *driver);
 
 extern int usb_add_gadget_udc_release(struct device *parent,
 		struct usb_gadget *gadget, void (*release)(struct device *dev));

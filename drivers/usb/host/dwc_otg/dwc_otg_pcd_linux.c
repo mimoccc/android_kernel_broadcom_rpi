@@ -1290,7 +1290,7 @@ void pcd_remove(dwc_bus_dev_t *_dev)
 int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
 {
 	int retval;
-
+	udc_usb_gadget_probe_driver(driver);
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
 		    driver->driver.name);
 
@@ -1336,7 +1336,7 @@ EXPORT_SYMBOL(usb_gadget_probe_driver);
 int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	//DWC_DEBUGPL(DBG_PCDV,"%s(%p)\n", __func__, _driver);
-
+	udc_usb_gadget_unregister_driver(driver);
 	if (gadget_wrapper == 0) {
 		DWC_DEBUGPL(DBG_ANY, "%s Return(%d): s_pcd==0\n", __func__,
 			    -ENODEV);

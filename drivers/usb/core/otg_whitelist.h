@@ -104,83 +104,57 @@ static int is_targeted(struct usb_device *dev)
 		return 1;
 
 	/* HNP test device is _never_ targeted (see OTG spec 6.6.6) */
-	if (dev->descriptor.idVendor == 0x1a0a &&
-            dev->descriptor.idProduct == 0xbadd) {
-                return 0;
-	} else if (!enable_whitelist) {
+	if ((le16_to_cpu(dev->descriptor.idVendor) == 0x1a0a &&
+	     le16_to_cpu(dev->descriptor.idProduct) == 0xbadd))
+		return 0;
+
+	/* NOTE: can't use usb_match_id() since interface caches
+	 * aren't set up yet. this is cut/paste from that code.
+	 */
+	for (id = whitelist_table; id->match_flags; id++) {
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_VENDOR) &&
+		    id->idVendor != le16_to_cpu(dev->descriptor.idVendor))
+			continue;
+
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_PRODUCT) &&
+		    id->idProduct != le16_to_cpu(dev->descriptor.idProduct))
+			continue;
+
+		/* No need to test id->bcdDevice_lo != 0, since 0 is never
+		   greater than any unsigned number. */
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_LO) &&
+		    (id->bcdDevice_lo > le16_to_cpu(dev->descriptor.bcdDevice)))
+			continue;
+
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_HI) &&
+		    (id->bcdDevice_hi < le16_to_cpu(dev->descriptor.bcdDevice)))
+			continue;
+
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_CLASS) &&
+		    (id->bDeviceClass != dev->descriptor.bDeviceClass))
+			continue;
+
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_SUBCLASS) &&
+		    (id->bDeviceSubClass != dev->descriptor.bDeviceSubClass))
+			continue;
+
+		if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_PROTOCOL) &&
+		    (id->bDeviceProtocol != dev->descriptor.bDeviceProtocol))
+			continue;
+
 		return 1;
-        } else {
-
-#ifdef DEBUG
-                dev_dbg(&dev->dev, "device V:%04x P:%04x DC:%04x SC:%04x PR:%04x \n",
-                        dev->descriptor.idVendor,
-                        dev->descriptor.idProduct,
-                        dev->descriptor.bDeviceClass,
-                        dev->descriptor.bDeviceSubClass,
-                        dev->descriptor.bDeviceProtocol);
-#endif
-
-		return 1;
-		/* NOTE: can't use usb_match_id() since interface caches
-		 * aren't set up yet. this is cut/paste from that code.
-		 */
-		for (id = whitelist_table; id->match_flags; id++) {
-#ifdef DEBUG
-			dev_dbg(&dev->dev,
-				"ID: V:%04x P:%04x DC:%04x SC:%04x PR:%04x \n",
-				id->idVendor,
-				id->idProduct,
-				id->bDeviceClass,
-				id->bDeviceSubClass,
-				id->bDeviceProtocol);
-#endif
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_VENDOR) &&
-			    id->idVendor != le16_to_cpu(dev->descriptor.idVendor))
-				continue;
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_PRODUCT) &&
-			    id->idProduct != le16_to_cpu(dev->descriptor.idProduct))
-				continue;
-
-			/* No need to test id->bcdDevice_lo != 0, since 0 is never
-			   greater than any unsigned number. */
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_LO) &&
-			    (id->bcdDevice_lo > le16_to_cpu(dev->descriptor.bcdDevice)))
-				continue;
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_HI) &&
-			    (id->bcdDevice_hi < le16_to_cpu(dev->descriptor.bcdDevice)))
-				continue;
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_CLASS) &&
-			    (id->bDeviceClass != dev->descriptor.bDeviceClass))
-				continue;
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_SUBCLASS) &&
-			    (id->bDeviceSubClass != dev->descriptor.bDeviceSubClass))
-				continue;
-
-			if ((id->match_flags & USB_DEVICE_ID_MATCH_DEV_PROTOCOL) &&
-			    (id->bDeviceProtocol != dev->descriptor.bDeviceProtocol))
-				continue;
-
-			return 1;
-		}
 	}
 
 	/* add other match criteria here ... */
 
+
+	/* OTG MESSAGE: report errors here, customize to match your product */
+	dev_err(&dev->dev, "device v%04x p%04x is not supported\n",
+		le16_to_cpu(dev->descriptor.idVendor),
+		le16_to_cpu(dev->descriptor.idProduct));
 #ifdef	CONFIG_USB_OTG_WHITELIST
-	report_errors(dev);
 	return 0;
 #else
-	if (enable_whitelist) {
-		report_errors(dev);
-		return 0;
-	} else {
-		return 1;
-	}
+	return 1;
 #endif
 }
-
