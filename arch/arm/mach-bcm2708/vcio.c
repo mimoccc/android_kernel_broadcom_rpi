@@ -61,6 +61,8 @@
 #define MBOX_DATA28_LSB(msg)		(((uint32_t)msg) >> 4)
 
 #define MBOX_MAGIC 0xd0d0c0de
+static struct class *vcio_class = NULL;
+
 
 struct vc_mailbox {
 	struct device *dev;	/* parent device */
@@ -350,7 +352,6 @@ static long device_ioctl(struct file *file,	/* see include/linux/fs.h */
 		 */
 		mbox_copy_from_user(&size, (void *)ioctl_param, sizeof size);
 		return bcm_mailbox_property((void *)ioctl_param, size);
-		break;
 	default:
 		printk(KERN_ERR DRIVER_NAME "unknown ioctl: %d\n", ioctl_num);
 		return -EINVAL;
@@ -411,7 +412,7 @@ static int bcm_vcio_probe(struct platform_device *pdev)
 		/*
 		 * Register the character device
 		 */
-		ret = register_chrdev(MAJOR_NUM, DEVICE_FILE_NAME, &fops);
+		ret = register_chrdev(MAJOR_NUM, DRIVER_NAME, &fops);
 
 		/*
 		 * Negative values signify an error
@@ -421,6 +422,13 @@ static int bcm_vcio_probe(struct platform_device *pdev)
 			       "Failed registering the character device %d\n", ret);
 			return ret;
 		}
+		vcio_class = class_create(THIS_MODULE, DRIVER_NAME);
+		if (IS_ERR(vcio_class)) {
+		    ret = PTR_ERR(vcio_class);
+		   return ret ;
+		}	
+		device_create(vcio_class, NULL, MKDEV(MAJOR_NUM, 0), NULL,
+                      "vcio");
 	}
 	return ret;
 }
