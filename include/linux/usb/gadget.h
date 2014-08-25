@@ -900,6 +900,7 @@ struct usb_gadget_driver {
  * registration call returns.  It's expected that the @bind() function will
  * be in init sections.
  */
+int udc_usb_gadget_probe_driver(struct usb_gadget_driver *driver);
 int usb_gadget_probe_driver(struct usb_gadget_driver *driver);
 
 /**
@@ -915,6 +916,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver);
  * finally returns.  It's expected that the unbind() functions
  * will in in exit sections, so may not be linked in some kernels.
  */
+int udc_usb_gadget_unregister_driver(struct usb_gadget_driver *driver);
 int usb_gadget_unregister_driver(struct usb_gadget_driver *driver);
 
 extern int usb_add_gadget_udc_release(struct device *parent,
