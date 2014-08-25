@@ -391,7 +391,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(udc_attach_driver);
 
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
+int udc_usb_gadget_probe_driver(struct usb_gadget_driver *driver)
 {
 	struct usb_udc		*udc = NULL;
 	int			ret;
@@ -414,9 +414,9 @@ found:
 	mutex_unlock(&udc_lock);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(usb_gadget_probe_driver);
+EXPORT_SYMBOL_GPL(udc_usb_gadget_probe_driver);
 
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+int udc_usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	struct usb_udc		*udc = NULL;
 	int			ret = -ENODEV;
@@ -437,7 +437,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	mutex_unlock(&udc_lock);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(usb_gadget_unregister_driver);
+EXPORT_SYMBOL_GPL(udc_usb_gadget_unregister_driver);
 
 /* ------------------------------------------------------------------------- */
 
