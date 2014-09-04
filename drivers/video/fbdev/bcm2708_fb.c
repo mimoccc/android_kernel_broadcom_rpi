@@ -405,6 +405,29 @@ static int bcm2708_fb_blank(int blank_mode, struct fb_info *info)
 
 
 }
+static int bcm2708_fb_pan_display(struct fb_var_screeninfo *var,
+			       struct fb_info *info)
+{
+    	s32 result = -1 ; 
+	u32 p[8];
+	pr_info("bcm2708_fb_pan_display var->yoffset=%d var->xoffset=%d info->var.yoffset=%d info->var.xoffset=%d \n",var->yoffset,var->xoffset,info->var.yoffset,info->var.xoffset);
+		
+		
+	p[0] = 35; //  size = sizeof u32 * length of p
+	p[1] = VCMSG_PROCESS_REQUEST; // process request
+	p[2] = VCMSG_SET_VIRTUAL_OFFSET; // (the tag id)
+	p[3] = 8; // (size of the response buffer)
+	p[4] = 8; // (size of the request data)
+	p[5] = var->xoffset;
+	p[6] = var->yoffset;
+	p[7] = VCMSG_PROPERTY_END; // end tag
+	bcm_mailbox_property(&p, p[0]);
+	pr_info("bcm2708_fb_pan_display p[0]=0x%x p[1]=0x%x p[2]=0x%x p[3]=0x%x p[4]=0x%x p[5]=0x%x p[6]=0x%x p[7]=0x%x\n",p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7]);
+	if ( p[1] == VCMSG_REQUEST_SUCCESSFUL )
+	    result = 0 ; 
+
+	return result;
+}
 static void bcm2708_fb_fillrect(struct fb_info *info,
 				const struct fb_fillrect *rect)
 {
@@ -590,6 +613,7 @@ static struct fb_ops bcm2708_fb_ops = {
 	.fb_fillrect = bcm2708_fb_fillrect,
 	.fb_copyarea = bcm2708_fb_copyarea,
 	.fb_imageblit = bcm2708_fb_imageblit,
+	.fb_pan_display	= bcm2708_fb_pan_display,
 };
 
 static int bcm2708_fb_register(struct bcm2708_fb *fb)
@@ -616,8 +640,8 @@ static int bcm2708_fb_register(struct bcm2708_fb *fb)
 	strncpy(fb->fb.fix.id, bcm2708_name, sizeof(fb->fb.fix.id));
 	fb->fb.fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fb.fix.type_aux = 0;
-	fb->fb.fix.xpanstep = 0;
-	fb->fb.fix.ypanstep = 0;
+	fb->fb.fix.xpanstep = 1;
+	fb->fb.fix.ypanstep = 1;
 	fb->fb.fix.ywrapstep = 0;
 	fb->fb.fix.accel = FB_ACCEL_NONE;
 

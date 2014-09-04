@@ -322,7 +322,28 @@ static int device_release(struct inode *inode, struct file *file)
 	module_put(THIS_MODULE);
 	return 0;
 }
-
+static int ioctl_vc_get_vc_memory(struct vc_memory* vcmem){
+	
+	
+	s32 result = -1 ; 
+	u32 p[8];
+	p[0] = 32; //  size = sizeof u32 * length of p
+	p[1] = VCMSG_PROCESS_REQUEST; // process request
+	p[2] = VCMSG_GET_VC_MEMORY; // (the tag id)
+	p[3] = 8; // (size of the response buffer)
+	p[4] = 0; // (size of the request data)
+	p[5] = 0; //  This is where the base address is returned to
+	p[6] = 0; //  This is where the size is returned to
+	p[7] = VCMSG_PROPERTY_END; // end tag 
+	bcm_mailbox_property(&p, p[0]);
+	pr_info("ioctl_vc_get_vc_memory p[0]=0x%x p[1]=0x%x p[2]=0x%x p[3]=0x%x p[4]=0x%x p[5]=0x%x p[6]=0x%x\n",p[0],p[1],p[2],p[3],p[4],p[5],p[6]);
+	if ( p[1] == VCMSG_REQUEST_SUCCESSFUL ){
+	    vcmem->base = p[5];
+	    vcmem->size = p[6];
+	    result = 0 ; 
+	}
+	return result;
+}
 /*
  * This function is called whenever a process tries to do an ioctl on our
  * device file. We get two extra parameters (additional to the inode and file
@@ -338,6 +359,9 @@ static long device_ioctl(struct file *file,	/* see include/linux/fs.h */
 		 unsigned long ioctl_param)
 {
 	unsigned size;
+	struct vc_memory vcmem;
+	void __user *argp = (void __user *)ioctl_param;
+	
 	/*
 	 * Switch according to the ioctl called
 	 */
@@ -350,6 +374,15 @@ static long device_ioctl(struct file *file,	/* see include/linux/fs.h */
 		 */
 		mbox_copy_from_user(&size, (void *)ioctl_param, sizeof size);
 		return bcm_mailbox_property((void *)ioctl_param, size);
+		break;
+	case IOCTL_VCMSG_GET_VC_MEMORY:
+		
+		 if(ioctl_vc_get_vc_memory(&vcmem) == -1)
+		     return -1;
+		 
+		 return copy_to_user(argp, &vcmem, sizeof(struct vc_memory)) ? -EFAULT : 0;
+		 
+
 		break;
 	default:
 		printk(KERN_ERR DRIVER_NAME "unknown ioctl: %d\n", ioctl_num);

@@ -45,12 +45,12 @@ enum {
 	VCMSG_PROPERTY_END               = 0x00000000,
 	VCMSG_GET_FIRMWARE_REVISION      = 0x00000001,
 	VCMSG_GET_BOARD_MODEL            = 0x00010001,
-	VCMSG_GET_BOARD_REVISION	 = 0x00020002,
-	VCMSG_GET_BOARD_MAC_ADDRESS	 = 0x00020003,
-	VCMSG_GET_BOARD_SERIAL		 = 0x00020004,
-	VCMSG_GET_ARM_MEMORY		 = 0x00020005,
-	VCMSG_GET_VC_MEMORY		 = 0x00020006,
-	VCMSG_GET_CLOCKS		 = 0x00020007,
+	VCMSG_GET_BOARD_REVISION	 = 0x00010002,
+	VCMSG_GET_BOARD_MAC_ADDRESS	 = 0x00010003,
+	VCMSG_GET_BOARD_SERIAL		 = 0x00010004,
+	VCMSG_GET_ARM_MEMORY		 = 0x00010005,
+	VCMSG_GET_VC_MEMORY		 = 0x00010006,
+	VCMSG_GET_CLOCKS		 = 0x00010007,
 	VCMSG_GET_COMMAND_LINE           = 0x00050001,
 	VCMSG_GET_DMA_CHANNELS           = 0x00060001,
 	VCMSG_GET_POWER_STATE            = 0x00020001,
@@ -121,24 +121,17 @@ extern int /*rc*/ bcm_mailbox_property(void *data, int size);
  */
 #define MAJOR_NUM 100
 
+typedef struct vc_memory {
+    __u32 base ;
+    __u32 size ;
+} vc_memory_t;
+
+
 /*
  * Set the message of the device driver
  */
 #define IOCTL_MBOX_PROPERTY _IOWR(MAJOR_NUM, 0, char *)
-/*
- * _IOWR means that we're creating an ioctl command
- * number for passing information from a user process
- * to the kernel module and from the kernel module to user process
- *
- * The first arguments, MAJOR_NUM, is the major device
- * number we're using.
- *
- * The second argument is the number of the command
- * (there could be several with different meanings).
- *
- * The third argument is the type we want to get from
- * the process to the kernel.
- */
+#define IOCTL_VCMSG_GET_VC_MEMORY _IOWR(MAJOR_NUM, 1,struct vc_memory)
 
 /*
  * The name of the device file
