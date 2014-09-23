@@ -21,14 +21,11 @@
 #include <linux/slab.h>
 #include <linux/debugfs.h>
 #include <asm/uaccess.h>
+#include <linux/proc_fs.h>
 #include <linux/dma-mapping.h>
 
-#ifdef CONFIG_ARCH_KONA
-#include <chal/chal_ipc.h>
-#elif CONFIG_ARCH_BCM2708
-#else
 #include <csp/chal_ipc.h>
-#endif
+
 
 #include "mach/vc_mem.h"
 #include <mach/vcio.h>
@@ -64,6 +61,7 @@ unsigned long mm_vc_mem_phys_addr = 0x00000000;
 unsigned int mm_vc_mem_size = 0;
 unsigned int mm_vc_mem_base = 0;
 
+unsigned int mm_vc_mem_load;
 EXPORT_SYMBOL(mm_vc_mem_phys_addr);
 EXPORT_SYMBOL(mm_vc_mem_size);
 EXPORT_SYMBOL(mm_vc_mem_base);
@@ -112,36 +110,75 @@ vc_mem_release(struct inode *inode, struct file *file)
 *   vc_mem_get_size
 *
 ***************************************************************************/
-
-static void
-vc_mem_get_size(void)
+static void vc_mem_get_size(void)
 {
+
+    u32 p[8];
+    p[0] = 32; //  size = sizeof u32 * length of p
+    p[1] = VCMSG_PROCESS_REQUEST; // process request
+    p[2] = VCMSG_GET_VC_MEMORY; // (the tag id)
+    p[3] = 8; // (size of the response buffer)
+    p[4] = 0; // (size of the request data)
+    p[5] = 0; //  This is where the base address is returned to
+    p[6] = 0; //  This is where the size is returned to
+    p[7] = VCMSG_PROPERTY_END; // end tag
+    bcm_mailbox_property(&p, p[0]);
+    pr_info("ioctl_vc_get_vc_memory p[0]=0x%x p[1]=0x%x p[2]=0x%x p[3]=0x%x p[4]=0x%x p[5]=0x%x p[6]=0x%x\n",p[0],p[1],p[2],p[3],p[4],p[5],p[6]);
+    if ( p[1] == VCMSG_REQUEST_SUCCESSFUL ){
+	mm_vc_mem_base = p[5];
+	mm_vc_mem_size = p[6];
+	mm_vc_mem_load = mm_vc_mem_size;
+    }
+
 }
 
-/****************************************************************************
-*
-*   vc_mem_get_base
-*
-***************************************************************************/
-
-static void
-vc_mem_get_base(void)
-{
-}
 
 /****************************************************************************
 *
 *   vc_mem_get_current_size
 *
 ***************************************************************************/
-
-int
-vc_mem_get_current_size(void)
+int vc_mem_get_current_size(void)
 {
+	vc_mem_get_size();
+	printk(KERN_INFO "vc-mem: current size check = 0x%08x (%u MiB)\n",
+	       mm_vc_mem_size, mm_vc_mem_size / (1024 * 1024));
 	return mm_vc_mem_size;
 }
 
+
 EXPORT_SYMBOL_GPL(vc_mem_get_current_size);
+/****************************************************************************
+*
+*   vc_mem_get_current_base
+*
+***************************************************************************/
+
+int vc_mem_get_current_base(void)
+{
+	vc_mem_get_size();
+	printk(KERN_INFO "vc-mem: current base check = 0x%08x (%u MiB)\n",
+	       mm_vc_mem_base, mm_vc_mem_base / (1024 * 1024));
+	return mm_vc_mem_base;
+}
+
+EXPORT_SYMBOL_GPL(vc_mem_get_current_base);
+
+/****************************************************************************
+*
+*   vc_mem_get_current_load
+*
+***************************************************************************/
+
+int vc_mem_get_current_load(void)
+{
+	vc_mem_get_size();
+	printk(KERN_INFO "vc-mem: current load check = 0x%08x (%u MiB)\n",
+	       mm_vc_mem_load, mm_vc_mem_load / (1024 * 1024));
+	return mm_vc_mem_load;
+}
+
+EXPORT_SYMBOL_GPL(vc_mem_get_current_load);
 
 /****************************************************************************
 *
@@ -187,28 +224,28 @@ vc_mem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 	case VC_MEM_IOC_MEM_BASE:
 		{
-			// Get the videocore memory base
-			vc_mem_get_base();
+			/* Get the videocore memory size first */
+			vc_mem_get_size();
 
-			pr_debug("%s: VC_MEM_IOC_MEM_BASE=%u\n", __func__,
+			pr_debug("%s: VC_MEM_IOC_MEM_BASE=%u", __func__,
 				mm_vc_mem_base);
 
-			if (copy_to_user((void *) arg, &mm_vc_mem_base,
-					 sizeof (mm_vc_mem_base)) != 0) {
+			if (copy_to_user((void *)arg, &mm_vc_mem_base,
+					 sizeof(mm_vc_mem_base)) != 0) {
 				rc = -EFAULT;
 			}
 			break;
 		}
 	case VC_MEM_IOC_MEM_LOAD:
 		{
-			// Get the videocore memory base
-			vc_mem_get_base();
+			/* Get the videocore memory size first */
+			vc_mem_get_size();
 
-			pr_debug("%s: VC_MEM_IOC_MEM_LOAD=%u\n", __func__,
-				mm_vc_mem_base);
+			pr_debug("%s: VC_MEM_IOC_MEM_LOAD=%u", __func__,
+				mm_vc_mem_load);
 
-			if (copy_to_user((void *) arg, &mm_vc_mem_base,
-					 sizeof (mm_vc_mem_base)) != 0) {
+			if (copy_to_user((void *)arg, &mm_vc_mem_load,
+					 sizeof(mm_vc_mem_load)) != 0) {
 				rc = -EFAULT;
 			}
 			break;
@@ -324,6 +361,74 @@ fail:
 
 #endif /* CONFIG_DEBUG_FS */
 
+/****************************************************************************
+*
+*   vc_mem_proc_read
+*
+***************************************************************************/
+
+static int vc_mem_show_info(struct seq_file *m, void *v)
+{
+
+	vc_mem_get_size();
+
+	seq_printf(m, "Videocore memory:\n");
+	seq_printf(m, "   Physical address: 0x%p\n",
+		     (void *)mm_vc_mem_phys_addr);
+	seq_printf(m, "   Base Offset:      0x%08x (%u MiB)\n",
+		     mm_vc_mem_base, mm_vc_mem_base >> 20);
+	seq_printf(m, "   Load Offset:      0x%08x (%u MiB)\n",
+		     mm_vc_mem_load, mm_vc_mem_load >> 20);
+	seq_printf(m, "   Length (bytes):   %u (%u MiB)\n", mm_vc_mem_size,
+		     mm_vc_mem_size >> 20);
+
+	seq_printf(m, "\n");
+
+	return 0;
+}
+
+static int vc_mem_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vc_mem_show_info, NULL);
+}
+/****************************************************************************
+*
+*   vc_mem_proc_write
+*
+***************************************************************************/
+
+static int vc_mem_proc_write(struct file *filp,const char *buffer,size_t count,loff_t *data)
+{
+	int rc = -EFAULT;
+	char input_str[10];
+
+	memset(input_str, 0, sizeof(input_str));
+
+	if (count > sizeof(input_str)) {
+		pr_err("%s: input string length too long", __func__);
+		goto out;
+	}
+
+	if (copy_from_user(input_str, buffer, count - 1)) {
+		pr_err("%s: failed to get input string", __func__);
+		goto out;
+	}
+
+	if (strncmp(input_str, "connect", strlen("connect")) == 0)
+		/* Get the videocore memory size from the videocore */
+		vc_mem_get_size();
+
+out:
+	return rc;
+}
+
+static const struct file_operations vc_mem_proc_fops = {
+	.open = vc_mem_proc_open,
+	.read = seq_read,
+	.write = vc_mem_proc_write,
+	.llseek = seq_lseek,
+	.release = single_release
+};
 
 /****************************************************************************
 *
@@ -380,9 +485,15 @@ vc_mem_init(void)
 	vc_mem_debugfs_init(dev);
 #endif
 
+	if (proc_create(DRIVER_NAME, 0444, NULL,&vc_mem_proc_fops) == NULL) {
+		rc = -EFAULT;
+		pr_err("%s: create_proc_entry failed", __func__);
+		goto out_device_destroy;
+	}
 	vc_mem_inited = 1;
 	return 0;
 
+out_device_destroy:
 	device_destroy(vc_mem_class, vc_mem_devnum);
 
       out_class_destroy:
@@ -414,6 +525,7 @@ vc_mem_exit(void)
 #if CONFIG_DEBUG_FS
 		vc_mem_debugfs_deinit();
 #endif
+		remove_proc_entry(DRIVER_NAME, NULL);
 		device_destroy(vc_mem_class, vc_mem_devnum);
 		class_destroy(vc_mem_class);
 		cdev_del(&vc_mem_cdev);
@@ -429,4 +541,3 @@ MODULE_AUTHOR("Broadcom Corporation");
 module_param(phys_addr, uint, 0644);
 module_param(mem_size, uint, 0644);
 module_param(mem_base, uint, 0644);
-
