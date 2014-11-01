@@ -24,7 +24,7 @@
 #include <linux/proc_fs.h>
 #include <linux/dma-mapping.h>
 
-#include <csp/chal_ipc.h>
+
 
 
 #include "mach/vc_mem.h"
